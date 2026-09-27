@@ -1,17 +1,18 @@
 import { cloneScenario, summarizeScenario, validateDevice, validateScenarioSettings } from './domain';
 import { findScenario, type EnergyRepository } from './repository';
-import type { EnergyDevice, EnergyDocument, EnergyScenario, Notice, ViewStatus } from './types';
+import type { EnergyDevice, EnergyDocument, EnergyScenario, LoadPhase, Notice, ViewStatus } from './types';
 
 export interface EnergyLensState {
   document: EnergyDocument | null;
   status: ViewStatus;
   notice: Notice | null;
+  loadPhase: LoadPhase;
 }
 
 type Listener = (state: EnergyLensState) => void;
 
 export class EnergyLensViewModel {
-  private state: EnergyLensState = { document: null, status: 'loading', notice: null };
+  private state: EnergyLensState = { document: null, status: 'loading', notice: null, loadPhase: 'loading' };
   private readonly listeners = new Set<Listener>();
 
   constructor(private readonly repository: EnergyRepository) {}
@@ -24,10 +25,29 @@ export class EnergyLensViewModel {
   getState(): EnergyLensState { return this.state; }
 
   initialize(): void {
+    this.loadFromStorage();
+  }
+
+  // 仅重新读取本地数据，不触发任何写入；成功后直接回到正常界面
+  retryLoad(): void {
+    if (this.state.loadPhase !== 'error') return;
+    this.state = { ...this.state, loadPhase: 'loading' };
+    this.emit();
+    this.loadFromStorage();
+  }
+
+  private loadFromStorage(): void {
     try {
-      this.state = { document: this.repository.load(), status: 'ready', notice: null };
+      // 首次使用、本地无数据或数据损坏时，repository 会给出引导用示例方案
+      const document = this.repository.load();
+      this.state = { document, status: 'ready', notice: null, loadPhase: 'ready' };
     } catch {
-      this.state = { document: null, status: 'error', notice: { kind: 'error', text: '本地数据读取失败，请刷新重试' } };
+      this.state = {
+        document: null,
+        status: 'error',
+        loadPhase: 'error',
+        notice: { kind: 'error', text: '本地数据读取失败，暂时无法恢复你保存在本机的能耗方案，数据未被改动，可重试。' },
+      };
     }
     this.emit();
   }
@@ -98,6 +118,7 @@ export class EnergyLensViewModel {
   }
 
   complete(): void {
+    if (!this.state.document) return;
     this.state = { ...this.state, status: 'completed', notice: { kind: 'success', text: '本次推演已保存，可随时回来继续调整' } };
     this.emit();
   }
@@ -111,7 +132,7 @@ export class EnergyLensViewModel {
   private persist(document: EnergyDocument, notice: string): void {
     try {
       this.repository.save(document);
-      this.state = { document, status: 'editing', notice: { kind: 'success', text: notice } };
+      this.state = { ...this.state, document, status: 'editing', notice: { kind: 'success', text: notice } };
     } catch {
       this.state = { ...this.state, status: 'error', notice: { kind: 'error', text: '保存失败，当前页面仍可继续编辑' } };
     }

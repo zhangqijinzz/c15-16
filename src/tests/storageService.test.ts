@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { readDocument } from '../services/storageService';
 import { exampleScenario } from '../domain';
 import { LocalEnergyRepository } from '../repository';
 
@@ -11,5 +12,17 @@ describe('local persistence recovery', () => {
     const recovered = new LocalEnergyRepository().load();
     expect(recovered.activeScenarioId).toBe(exampleScenario.id);
     expect(recovered.scenarios[0].devices.length).toBeGreaterThan(0);
+  });
+
+  it('treats first run with no local data as the onboarding path (example document)', () => {
+    const firstRun = new LocalEnergyRepository().load();
+    expect(firstRun.scenarios).toHaveLength(1);
+    expect(firstRun.activeScenarioId).toBe(exampleScenario.id);
+  });
+
+  it('propagates a storage access failure instead of mistaking it for empty local data', () => {
+    const getItem = vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('access denied'); });
+    expect(() => readDocument()).toThrow('access denied');
+    getItem.mockRestore();
   });
 });

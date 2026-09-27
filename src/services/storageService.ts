@@ -3,13 +3,16 @@ import type { EnergyDocument } from '../types';
 const STORAGE_KEY = 'energy-lens.document.v1';
 
 export function readDocument(): EnergyDocument | null {
+  // 存储本身不可访问（如隐私模式、配额/安全策略异常）属于读取失败，交由上层走错误态；
+  // 这里不吞掉异常，避免把"读不到"误判成"首次使用、什么都没有"。
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
     if (!isDocument(parsed)) return null;
     return parsed;
   } catch {
+    // 数据损坏：保持既有行为，降级为引导示例，不进入读取失败态
     return null;
   }
 }

@@ -22,6 +22,9 @@ export interface EnergyDocument {
 
 export type ViewStatus = 'loading' | 'ready' | 'editing' | 'error' | 'completed';
 
+// 启动阶段本地数据的三种走向：加载中 / 读取失败 / 已就绪（含首次使用、本地无数据）
+export type LoadPhase = 'loading' | 'error' | 'ready';
+
 export interface Notice {
   kind: 'success' | 'error' | 'info';
   text: string;
