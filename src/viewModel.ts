@@ -24,10 +24,20 @@ export class EnergyLensViewModel {
   getState(): EnergyLensState { return this.state; }
 
   initialize(): void {
+    this.load();
+  }
+
+  retry(): void {
+    this.state = { document: null, status: 'loading', notice: null };
+    this.emit();
+    this.load();
+  }
+
+  private load(): void {
     try {
       this.state = { document: this.repository.load(), status: 'ready', notice: null };
     } catch {
-      this.state = { document: null, status: 'error', notice: { kind: 'error', text: '本地数据读取失败，请刷新重试' } };
+      this.state = { document: null, status: 'load-error', notice: { kind: 'error', text: '本地数据读取失败，你的方案还没有被改动' } };
     }
     this.emit();
   }
@@ -98,6 +108,7 @@ export class EnergyLensViewModel {
   }
 
   complete(): void {
+    if (!this.state.document) return;
     this.state = { ...this.state, status: 'completed', notice: { kind: 'success', text: '本次推演已保存，可随时回来继续调整' } };
     this.emit();
   }

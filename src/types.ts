@@ -20,7 +20,7 @@ export interface EnergyDocument {
   activeScenarioId: string;
 }
 
-export type ViewStatus = 'loading' | 'ready' | 'editing' | 'error' | 'completed';
+export type ViewStatus = 'loading' | 'load-error' | 'ready' | 'editing' | 'error' | 'completed';
 
 export interface Notice {
   kind: 'success' | 'error' | 'info';

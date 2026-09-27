@@ -2,16 +2,18 @@ import type { EnergyDocument } from '../types';
 
 const STORAGE_KEY = 'energy-lens.document.v1';
 
+/**
+ * Returns the stored document, or null when nothing has been saved yet.
+ * Throws when stored data exists but cannot be read (storage unavailable,
+ * damaged JSON, schema mismatch) so callers can tell a read failure apart
+ * from a genuinely empty store instead of overwriting it with a fallback.
+ */
 export function readDocument(): EnergyDocument | null {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed: unknown = JSON.parse(raw);
-    if (!isDocument(parsed)) return null;
-    return parsed;
-  } catch {
-    return null;
-  }
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  const parsed: unknown = JSON.parse(raw);
+  if (!isDocument(parsed)) throw new Error('Stored energy document is not readable');
+  return parsed;
 }
 
 export function writeDocument(document: EnergyDocument): void {

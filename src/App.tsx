@@ -5,9 +5,20 @@ import { useEnergyLens } from './hooks';
 
 function App() {
   const { vm, state } = useEnergyLens();
+  if (state.status === 'loading') return <main className="loading-screen"><div className="pulse" /><p>正在恢复你的能耗方案…</p></main>;
+  if (state.status === 'load-error') {
+    return <main className="loading-screen">
+      <div className="load-error-card" role="alert">
+        <span className="load-error-icon">!</span>
+        <h1>没能读取你的能耗方案</h1>
+        <p>{state.notice?.text ?? '本地数据读取失败'}。数据仍保留在本地，可以重试一次，无需刷新页面。</p>
+        <button className="primary-button" onClick={() => vm.retry()}>重新读取 <span>↻</span></button>
+      </div>
+    </main>;
+  }
   const active = vm.activeScenario;
   const summary = vm.activeSummary;
-  if (state.status === 'loading' || !active || !summary) return <main className="loading-screen"><div className="pulse" /><p>正在恢复你的能耗方案…</p></main>;
+  if (!active || !summary) return null;
   const maxKwh = Math.max(...summary.devices.map((device) => device.monthlyKwh), 1);
   const baseline = state.document?.scenarios.find((item) => item.id !== active.id);
   const comparisonValue = baseline && baseline.id !== active.id ? baseline.devices.reduce((total, device) => total + (device.watts * device.dailyHours * baseline.daysPerMonth) / 1000, 0) : null;

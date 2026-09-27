@@ -43,4 +43,47 @@ describe('EnergyLensViewModel', () => {
     expect(vm.getState().status).toBe('error');
     expect(vm.getState().notice?.text).toContain('保存失败');
   });
+
+  it('moves to a dedicated load-error state when the initial read fails', () => {
+    const failing: EnergyRepository = { load: () => { throw new Error('denied'); }, save: vi.fn() };
+    const broken = new EnergyLensViewModel(failing);
+    expect(broken.getState().status).toBe('loading');
+    broken.initialize();
+    expect(broken.getState().status).toBe('load-error');
+    expect(broken.getState().document).toBeNull();
+    expect(broken.getState().notice?.kind).toBe('error');
+  });
+
+  it('recovers through retry without a page reload', () => {
+    let attempts = 0;
+    const flaky: EnergyRepository = {
+      load: () => {
+        attempts += 1;
+        if (attempts === 1) throw new Error('transient');
+        return { version: 1, scenarios: [structuredClone(exampleScenario)], activeScenarioId: exampleScenario.id };
+      },
+      save: vi.fn(),
+    };
+    const recovered = new EnergyLensViewModel(flaky);
+    recovered.initialize();
+    expect(recovered.getState().status).toBe('load-error');
+    recovered.retry();
+    expect(recovered.getState().status).toBe('ready');
+    expect(recovered.activeScenario).not.toBeNull();
+  });
+
+  it('never writes to storage while loading or after a load failure', () => {
+    const failing: EnergyRepository & { save: ReturnType<typeof vi.fn> } = { load: () => { throw new Error('denied'); }, save: vi.fn() };
+    const broken = new EnergyLensViewModel(failing);
+    broken.addDevice();
+    broken.complete();
+    broken.initialize();
+    broken.addDevice();
+    broken.updateSettings({ daysPerMonth: 10 });
+    broken.duplicateActive();
+    broken.selectScenario('scenario-home');
+    broken.complete();
+    expect(failing.save).not.toHaveBeenCalled();
+    expect(broken.getState().status).toBe('load-error');
+  });
 });
